@@ -30,7 +30,7 @@ public class UserInterface{
 				userInput = userData.next();
 			try {
 				InputConfig userInputConfig = new IntegerInputConfig((Integer.parseInt(userInput))); 
-				if(userInputConfig.getUserData() > 0) {
+				if(userInputConfig.getUserData() > 0) { // if user input is valid end loop
 					validInput = true;
 					UUID key = css.sendData(userInputConfig);
 					char[] sortedArr = css.retreiveCharArr(key);
