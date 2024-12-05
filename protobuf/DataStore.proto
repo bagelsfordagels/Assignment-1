@@ -18,7 +18,7 @@ message DSRecieveDataResponse{
 	optional string IntArrays = 1;
 }
 message MkFileRequest{
-	optional string CharArrays = 1;
+	repeated string CharArrays = 1;
 }
 message MkFileResponse{
 	optional string File = 1;

@@ -10,6 +10,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import io.grpc.Grpc;
+import io.grpc.InsecureChannelCredentials;
+import io.grpc.ManagedChannel;
 
 public class ComputeEngineStorageImplementation implements ComputeEngineStorageSystem{
 	int userData;
@@ -58,52 +63,61 @@ public class ComputeEngineStorageImplementation implements ComputeEngineStorageS
 		
     }
 	
-	public ArrayList<char[]> retrieveCharAl(UUID key, String fileName){
-		DataStorageSystem dss = new DSImpOptimization();
-		ComputeEngine cpe = new ComputeEngine();
-		if(key == null) {
-			throw new IllegalArgumentException("Key cannot be null");
-		}
+	public ArrayList<char[]> retrieveCharAl(UUID key, String fileName) throws Exception{
+		String target = "localhost:61073";  // Boilerplate TODO: make sure the server/port match the server/port you want to connect to
 		
-		Callable<ArrayList<char[]>> task = () -> {
-			InputConfig file = dataStore.get(key);
-			UUID fileKey = dss.sendData(file);
-			ArrayList<Integer> userInts = dss.recieveData(fileKey);
-
-			
-			List<Future<char[]>> futureList = new ArrayList<>();
-			
-			for(Integer userInt : userInts) {
-				Callable<char[]> readFileTask = () -> cpe.readFile(userInt);
-	            futureList.add(executorService.submit(readFileTask));
+		  ManagedChannel channel = Grpc.newChannelBuilder(target, InsecureChannelCredentials.create())
+		          .build();
+		  try {  
+			DataStorageSystem dss = new DataStoreClient(channel);
+			ComputeEngine cpe = new ComputeEngine();
+			if(key == null) {
+				throw new IllegalArgumentException("Key cannot be null");
 			}
 			
-			ArrayList<char[]> charAl = new ArrayList<>();
-			for(Future<char[]> future : futureList) {
-				try {
-					charAl.add(future.get());
-				} catch(ExecutionException | InterruptedException e){
-					throw new RuntimeException("Error during readfile" +e);
+			Callable<ArrayList<char[]>> task = () -> {
+				InputConfig file = dataStore.get(key);
+				UUID fileKey = dss.sendData(file);
+				ArrayList<Integer> userInts = dss.recieveData(fileKey);
+	
+				
+				List<Future<char[]>> futureList = new ArrayList<>();
+				
+				for(Integer userInt : userInts) {
+					Callable<char[]> readFileTask = () -> cpe.readFile(userInt);
+		            futureList.add(executorService.submit(readFileTask));
 				}
-			}
-			dss.mkFile(charAl,fileName);
-
-			System.out.println("A file with the information was created called UserData");
-			return charAl;
-		};
-		
-		Future<ArrayList<char[]>> future = executorService.submit(task);
-		try {
-			return future.get();
+				
+				ArrayList<char[]> charAl = new ArrayList<>();
+				for(Future<char[]> future : futureList) {
+					try {
+						charAl.add(future.get());
+					} catch(ExecutionException | InterruptedException e){
+						throw new RuntimeException("Error during readfile" +e);
+					}
+				}
+				dss.mkFile(charAl,fileName);
+	
+				System.out.println("A file with the information was created called UserData");
+				return charAl;
+			};
 			
-		}catch(IllegalArgumentException e) {
-			throw new IllegalArgumentException("Invalid key: "+key, e);
-		}catch(Exception e) {
-			throw new RuntimeException("Error retrieving data for key: "+key, e);
-		}
+			Future<ArrayList<char[]>> future = executorService.submit(task);
+			try {
+				return future.get();
+				
+			}catch(IllegalArgumentException e) {
+				throw new IllegalArgumentException("Invalid key: "+key, e);
+			}catch(Exception e) {
+				throw new RuntimeException("Error retrieving data for key: "+key, e);
+			}
+		}finally {
+	      channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+		  }
+		
 	}
 	@Override
-	public ArrayList<char[]> retrieveCharAl(UUID key) throws IOException{
+	public ArrayList<char[]> retrieveCharAl(UUID key) throws Exception{
 //		DataStorageSystem dss = new DataStorageImplementation();
 //		ComputeEngine cpe = new ComputeEngine();
 //		if(key == null) {
